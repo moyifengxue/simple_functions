@@ -1,3 +1,7 @@
+<div align="center">
+    <a href="https://moyifeng.blog.csdn.net/"> <img src="https://badgen.net/badge/MYF/莫逸风BLOG/4ab8a1?icon=rss"></a>
+    <a href="https://github.com/1046895947"> <img src="https://badgen.net/badge/MYF/莫逸风GitHub/4ab8a1?icon=github"></a>
+</div>
 ## 莫逸风企业级项目解决方案
 项目版本控制说明:功能遵循极简原则，在基本SpringBoot的基础上最小依赖实现功能解决方案。
 
