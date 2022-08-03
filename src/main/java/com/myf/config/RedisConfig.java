@@ -53,10 +53,16 @@ public class RedisConfig {
         return redisTemplate;
     }
 
-    @Bean(destroyMethod = "shutdown")
+    /**
+     * 构建Redisson操作对象
+     * @return RedissonClient
+     */
+    @Bean(destroyMethod = "shutdown") // 服务停止后调用 shutdown 方法。
     public RedissonClient redissonClient() {
         Config config = new Config();
+        // 单机模式。
         config.useSingleServer().setAddress("redis://" + host + ":" + port);
+        // 看门狗的默认时间。
         config.setLockWatchdogTimeout(30000);
         return Redisson.create(config);
     }
