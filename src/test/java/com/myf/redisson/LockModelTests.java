@@ -1,10 +1,9 @@
 package com.myf.redisson;
 
 import org.junit.jupiter.api.Test;
-import org.redisson.RedissonFairLock;
-import org.redisson.RedissonLock;
-import org.redisson.api.RLock;
-import org.redisson.api.RedissonClient;
+import org.redisson.RedissonMultiLock;
+import org.redisson.RedissonRedLock;
+import org.redisson.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
@@ -19,67 +18,6 @@ public class LockModelTests {
 
     @Autowired
     RedissonClient redissonClient;
-
-    @Test
-    void testLock1() {
-        new Thread(()->{
-            RedissonFairLock lock = (RedissonFairLock)redissonClient.getFairLock("testLock");
-            lock.lock(10,TimeUnit.SECONDS);
-            System.out.println(1);
-            Scanner scanner = new Scanner(System.in);
-            scanner.nextLine();
-        }).start();
-        sleepThread(1);
-        new Thread(()->{
-            RLock lock = redissonClient.getFairLock("testLock");
-            lock.lock();
-            System.out.println(2);
-            Scanner scanner = new Scanner(System.in);
-            scanner.nextLine();
-        }).start();
-        Scanner scanner = new Scanner(System.in);
-        scanner.nextLine();
-    }
-
-    @Test
-    void testLock2() {
-        RLock testLock = redissonClient.getLock("testLock");
-        testLock.lock(5,TimeUnit.SECONDS);
-        try {
-            TimeUnit.SECONDS.sleep(20L);
-            testLock.unlock();
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
-        RedissonLock lock = (RedissonLock) redissonClient.getLock("testLock");
-        lock.lock(5,TimeUnit.SECONDS);
-        try {
-            TimeUnit.SECONDS.sleep(20L);
-            lock.unlock();
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    @Test
-    void testLock() {
-        RedissonFairLock testLock = (RedissonFairLock) redissonClient.getFairLock("testLock");
-        testLock.lock(5,TimeUnit.SECONDS);
-        try {
-            TimeUnit.SECONDS.sleep(20L);
-            testLock.unlock();
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
-        RedissonLock lock = (RedissonLock) redissonClient.getLock("testLock");
-        lock.lock(5,TimeUnit.SECONDS);
-        try {
-            TimeUnit.SECONDS.sleep(20L);
-            lock.unlock();
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
-        }
-    }
 
     /**
      * 可重入锁
@@ -130,23 +68,25 @@ public class LockModelTests {
      */
     @Test
     void fairLock() {
-        // 工作时间15s,注意看Redis中的ddl会在过去1/3时间后续约。
-        new Thread(()->{
-            RLock lock = redissonClient.getFairLock("testLock");
-            lock.lock();
-            doSomething(true, lock, 15L, Thread.currentThread().getName());
-        }).start();
-        // 租赁时间5s,设置了租赁时间，看门狗失效，工作时间15s,释放锁会报IllegalMonitorStateException
+        // 租赁时间5s,设置了租赁时间，看门狗失效，工作时间50s,释放锁会报IllegalMonitorStateException
         new Thread(()->{
             RLock lock = redissonClient.getFairLock("testLock");
             lock.lock(5, TimeUnit.SECONDS);
-            doSomething(true, lock, 100L, Thread.currentThread().getName());
+            doSomething(true, lock, 50L, Thread.currentThread().getName());
+        }).start();
+        // 工作时间15s,注意看Redis中的ddl会在过去1/3时间后续约。
+        new Thread(()->{
+            RLock lock = redissonClient.getFairLock("testLock");
+            sleepThread(1);
+            lock.lock();
+            doSomething(true, lock, 15L, Thread.currentThread().getName());
         }).start();
         // 等待时间45S,未设置租赁时间，看门狗生效
         new Thread(()->{
             RLock lock = redissonClient.getFairLock("testLock");
             boolean lockFlag = false;
             try {
+                sleepThread(2);
                 lockFlag = lock.tryLock(100L, TimeUnit.SECONDS);
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
@@ -158,6 +98,7 @@ public class LockModelTests {
             RLock lock = redissonClient.getFairLock("testLock");
             boolean lockFlag = false;
             try {
+                sleepThread(3);
                 lockFlag = lock.tryLock(50L,5L, TimeUnit.SECONDS);
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
@@ -166,6 +107,146 @@ public class LockModelTests {
         }).start();
         Scanner scanner = new Scanner(System.in);
         scanner.nextLine();
+    }
+
+    @Test
+    void multiLockTest(){
+        RLock lock = redissonClient.getLock("testLock");
+        RLock lock2 = redissonClient.getLock("testLock2");
+        RLock lock3 = redissonClient.getLock("testLock3");
+        RedissonMultiLock multiLock = new RedissonMultiLock(lock, lock2, lock3);
+        // 同时加锁：testLock testLock2 testLock3
+        // 所有的锁都上锁成功才算成功。
+        try {
+            boolean tryLock = multiLock.tryLock(1, TimeUnit.SECONDS);
+            doSomething(tryLock, multiLock, 10, Thread.currentThread().getName());
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Test
+    void redLockTest(){
+        new Thread(()->{
+            RLock lock = redissonClient.getLock("testLock");
+            lock.lock();
+            doSomething(true, lock, 100, Thread.currentThread().getName());
+        }).start();
+        sleepThread(1);
+        RLock lock = redissonClient.getLock("testLock");
+        RLock lock2 = redissonClient.getLock("testLock2");
+        RLock lock3 = redissonClient.getLock("testLock3");
+        RedissonRedLock redLock = new RedissonRedLock(lock, lock2, lock3);
+        boolean flag = redLock.tryLock();
+        doSomething(flag, redLock, 10, Thread.currentThread().getName());
+    }
+
+    @Test
+    void readWriteLockTest(){
+        new Thread(()->{
+            RLock writeLock = redissonClient.getReadWriteLock("testLock").writeLock();
+            writeLock.lock();
+            doSomething(true,writeLock,10,Thread.currentThread().getName());
+        }).start();
+        sleepThread(1);
+        new Thread(()->{
+            RLock readLock = redissonClient.getReadWriteLock("testLock").readLock();
+            readLock.lock();
+            doSomething(true,readLock,10,Thread.currentThread().getName());
+        }).start();
+        new Thread(()->{
+            RLock readLock = redissonClient.getReadWriteLock("testLock").readLock();
+            readLock.lock();
+            doSomething(true,readLock,10,Thread.currentThread().getName());
+        }).start();
+        Scanner scanner = new Scanner(System.in);
+        scanner.nextLine();
+    }
+
+    @Test
+    void semaphoreLockTest(){
+        RSemaphore testLock = redissonClient.getSemaphore("testLock");
+        int permits = testLock.availablePermits();
+        testLock.addPermits(2-permits);
+        new Thread(()->{
+            RSemaphore semaphore = redissonClient.getSemaphore("testLock");
+            try {
+                semaphore.acquire();
+                System.out.println("获取到一个许可"+Thread.currentThread().getName());
+                sleepThread(10);
+                semaphore.release();
+                System.out.println("释放一个许可"+Thread.currentThread().getName());
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }).start();
+        new Thread(()->{
+            RSemaphore semaphore = redissonClient.getSemaphore("testLock");
+            try {
+                semaphore.acquire();
+                System.out.println("获取到一个许可"+Thread.currentThread().getName());
+                sleepThread(10);
+                semaphore.release();
+                System.out.println("释放一个许可"+Thread.currentThread().getName());
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }).start();
+        new Thread(()->{
+            RSemaphore semaphore = redissonClient.getSemaphore("testLock");
+            try {
+                semaphore.acquire();
+                System.out.println("获取到一个许可"+Thread.currentThread().getName());
+                sleepThread(10);
+                semaphore.release();
+                System.out.println("释放一个许可"+Thread.currentThread().getName());
+            } catch (InterruptedException e) {
+                throw new RuntimeException(e);
+            }
+        }).start();
+        Scanner scanner = new Scanner(System.in);
+        scanner.nextLine();
+    }
+
+    @Test
+    void permitExpirableSemaphoreLockTest() {
+        RPermitExpirableSemaphore expirableSemaphore = redissonClient.getPermitExpirableSemaphore("PermitExpirableSemaphore");
+        int permits = expirableSemaphore.availablePermits();
+        expirableSemaphore.addPermits(2-permits);
+        // 获取一个信号，有效期只有2秒钟。
+        try {
+            String permitId = expirableSemaphore.acquire(2, TimeUnit.SECONDS);
+            System.out.println(permitId);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+        try {
+            sleepThread(5);
+            String permitId = expirableSemaphore.acquire();
+            System.out.println(permitId);
+            expirableSemaphore.release(permitId);
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
+        Scanner scanner = new Scanner(System.in);
+        scanner.nextLine();
+    }
+
+    @Test
+    void countDownLatchTest(){
+        RCountDownLatch countDownLatch = redissonClient.getCountDownLatch("CountDownLatch");
+        countDownLatch.trySetCount(1);
+        new Thread(()->{
+            RCountDownLatch downLatch = redissonClient.getCountDownLatch("CountDownLatch");
+            sleepThread(10);
+            downLatch.countDown();
+        }).start();
+        try {
+            countDownLatch.await();
+            System.out.println("主线程休眠结束");
+        } catch (InterruptedException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     private void sleepThread(long sleepTime){
@@ -189,6 +270,8 @@ public class LockModelTests {
                 rLock.unlock();
                 System.out.printf("线程：%s，释放了锁%n",threadName);
             }
+        }else {
+            System.out.printf("线程：%s，加锁失败%n",threadName);
         }
     }
 }
