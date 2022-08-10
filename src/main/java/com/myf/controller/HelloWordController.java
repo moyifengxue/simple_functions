@@ -1,6 +1,7 @@
 package com.myf.controller;
 
 import com.myf.entity.HelloWord;
+import com.myf.redisson.annotation.DistributedLock;
 import com.myf.service.IHelloWordService;
 import com.myf.utils.RedisUtils;
 import lombok.RequiredArgsConstructor;
@@ -12,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.Date;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -34,7 +36,10 @@ public class HelloWordController {
     private final RedisTemplate<String, Object> redisTemplate;
 
     @GetMapping("/hello")
-    public String Hello(){
+    @DistributedLock(keys = "hello")
+    public String Hello() throws InterruptedException {
+        System.out.println(new Date());
+        TimeUnit.SECONDS.sleep(10L);
         return helloWordService.getById(1).getName();
     }
 

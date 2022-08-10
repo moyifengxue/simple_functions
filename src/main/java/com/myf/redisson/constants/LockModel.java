@@ -29,7 +29,7 @@ public enum LockModel {
      */
     WRITE,
     /**
-     * 自动模式,当参数只有一个.使用 REENTRANT 参数多个 RED_LOCK
+     * 自动模式,当参数只有一个使用 REENTRANT 参数多个 RED_LOCK
      */
     AUTO
 }

@@ -2,12 +2,14 @@ package com.myf.config;
 
 import com.alibaba.fastjson.support.spring.FastJsonRedisSerializer;
 import com.myf.entity.HelloWord;
+import com.myf.redisson.properties.RedissonProperties;
 import lombok.RequiredArgsConstructor;
 import org.redisson.Redisson;
 import org.redisson.api.RedissonClient;
 import org.redisson.config.Config;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
@@ -19,6 +21,7 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
  */
 @Configuration
 @RequiredArgsConstructor
+@EnableConfigurationProperties(value = RedissonProperties.class)
 public class RedisConfig {
 
     @Value("${spring.redis.host}")
@@ -29,6 +32,7 @@ public class RedisConfig {
 
 
     private final RedisConnectionFactory factory;
+    private final RedissonProperties redissonProperties;
 
     @Bean
     public RedisTemplate<String, Object> redisTemplate() {
@@ -63,7 +67,7 @@ public class RedisConfig {
         // 单机模式。
         config.useSingleServer().setAddress("redis://" + host + ":" + port);
         // 看门狗的默认时间。
-        config.setLockWatchdogTimeout(30000);
+        config.setLockWatchdogTimeout(redissonProperties.getLockWatchdogTimeout());
         return Redisson.create(config);
     }
 }
