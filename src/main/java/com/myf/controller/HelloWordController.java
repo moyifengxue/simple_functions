@@ -44,7 +44,9 @@ public class HelloWordController {
     }
 
     @GetMapping("/hello/{value}")
-    public String Hello(@PathVariable String value){
+    @DistributedLock(keys = "hello-#{#value}")
+    public String Hello(@PathVariable String value) throws InterruptedException {
+        TimeUnit.SECONDS.sleep(10L);
         redisUtils.set("hello",value,100);
         HelloWord word = helloWordService.getById(1);
         redisTemplate.opsForValue().set("helloObj",word, 10, TimeUnit.SECONDS);

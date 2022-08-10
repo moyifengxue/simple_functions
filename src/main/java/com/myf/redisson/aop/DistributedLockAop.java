@@ -22,6 +22,7 @@ import org.springframework.core.LocalVariableTableParameterNameDiscoverer;
 import org.springframework.expression.EvaluationContext;
 import org.springframework.expression.Expression;
 import org.springframework.expression.ExpressionParser;
+import org.springframework.expression.common.TemplateParserContext;
 import org.springframework.expression.spel.standard.SpelExpressionParser;
 import org.springframework.expression.spel.support.StandardEvaluationContext;
 import org.springframework.stereotype.Component;
@@ -49,6 +50,10 @@ public class DistributedLockAop {
      * SpEL表达式
      */
     private final ExpressionParser parser = new SpelExpressionParser();
+    /**
+     * 表达式解析上下文，只有#{}里的内容才会被作为SqEL表达式解析
+     */
+    TemplateParserContext parserContext = new TemplateParserContext();
     /**
      * redis-namespace,默认值myf
      */
@@ -141,12 +146,12 @@ public class DistributedLockAop {
                 }
                 break;
             case READ:
-                RReadWriteLock rwlock = redissonClient.getReadWriteLock(getValueBySpEL(keys[0], distributedLock.keyPrefix(), parameterNames, args).get(0));
-                rLock = rwlock.readLock();
+                RReadWriteLock readLock = redissonClient.getReadWriteLock(getValueBySpEL(keys[0], distributedLock.keyPrefix(), parameterNames, args).get(0));
+                rLock = readLock.readLock();
                 break;
             case WRITE:
-                RReadWriteLock rwlock1 = redissonClient.getReadWriteLock(getValueBySpEL(keys[0], distributedLock.keyPrefix(), parameterNames, args).get(0));
-                rLock = rwlock1.writeLock();
+                RReadWriteLock writeLock = redissonClient.getReadWriteLock(getValueBySpEL(keys[0], distributedLock.keyPrefix(), parameterNames, args).get(0));
+                rLock = writeLock.writeLock();
                 break;
         }
 
@@ -199,7 +204,7 @@ public class DistributedLockAop {
         for (int i = 0; i < parameterNames.length; i++) {
             context.setVariable(parameterNames[i], values[i]);
         }
-        Expression expression = parser.parseExpression(key);
+        Expression expression = parser.parseExpression(key, parserContext);
         Object value = expression.getValue(context);
         if (value != null) {
             // 数组列表使用联锁，key中不能含有杂质，"redisson-#{#apple.getArray()}" 显然会被认为是一个字符串，应将前缀放到keyPrefix中
