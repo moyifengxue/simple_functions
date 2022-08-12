@@ -44,7 +44,7 @@ public class HelloWordController {
     }
 
     @GetMapping("/hello/{value}")
-    @DistributedLock(keys = "hello-#{#value}")
+    @DistributedLock(keys = "#{#apple.getArray()}",keyPrefix = "redisson")
     public String Hello(@PathVariable String value) throws InterruptedException {
         TimeUnit.SECONDS.sleep(10L);
         redisUtils.set("hello",value,100);

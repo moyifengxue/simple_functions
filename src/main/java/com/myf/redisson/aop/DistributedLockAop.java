@@ -53,12 +53,7 @@ public class DistributedLockAop {
     /**
      * 表达式解析上下文，只有#{}里的内容才会被作为SqEL表达式解析
      */
-    TemplateParserContext parserContext = new TemplateParserContext();
-    /**
-     * redis-namespace,默认值myf
-     */
-    @Value("${spring.redis.namespace:myf}")
-    private String redisNameSpace;
+    private final TemplateParserContext parserContext = new TemplateParserContext();
 
     private final RedissonProperties redissonProperties;
     private final RedissonClient redissonClient;
@@ -195,7 +190,7 @@ public class DistributedLockAop {
         List<String> keys = new ArrayList<>();
         keyPrefix = StringUtils.hasLength(keyPrefix) ? keyPrefix + ":" : "";
         if (!key.contains("#")) {
-            String resultKey = redisNameSpace + ":" + keyPrefix + key;
+            String resultKey = redissonProperties.getRedisNameSpace() + ":" + keyPrefix + key;
             keys.add(resultKey);
             return keys;
         }
@@ -210,15 +205,15 @@ public class DistributedLockAop {
             // 数组列表使用联锁，key中不能含有杂质，"redisson-#{#apple.getArray()}" 显然会被认为是一个字符串，应将前缀放到keyPrefix中
             if (value instanceof List<?> valueList) {
                 for (Object o : valueList) {
-                    keys.add(redisNameSpace + ":" + keyPrefix + o.toString());
+                    keys.add(redissonProperties.getRedisNameSpace() + ":" + keyPrefix + o.toString());
                 }
             } else if (value.getClass().isArray()) {
                 Object[] obj = (Object[]) value;
                 for (Object o : obj) {
-                    keys.add(redisNameSpace + ":" + keyPrefix + o.toString());
+                    keys.add(redissonProperties.getRedisNameSpace() + ":" + keyPrefix + o.toString());
                 }
             } else {
-                keys.add(redisNameSpace + ":" + keyPrefix + value);
+                keys.add(redissonProperties.getRedisNameSpace() + ":" + keyPrefix + value);
             }
         }
         log.debug("SpEL表达式key = {},value = {}", key, keys);

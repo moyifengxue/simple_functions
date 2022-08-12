@@ -13,3 +13,5 @@ spring:
         min-idle: 50 # 连接池中的最小空闲连接
         max-wait: 6000ms # 连接池最大阻塞等待时间（使用负值表示没有限制）
     timeout: 6000ms
+  redisson:
+    redis_name_space: functions
