@@ -3,18 +3,53 @@ package com.myf;
 import com.baomidou.mybatisplus.annotation.FieldFill;
 import com.baomidou.mybatisplus.generator.FastAutoGenerator;
 import com.baomidou.mybatisplus.generator.fill.Column;
+import lombok.Data;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.expression.EvaluationContext;
+import org.springframework.expression.Expression;
+import org.springframework.expression.ExpressionParser;
+import org.springframework.expression.common.TemplateParserContext;
+import org.springframework.expression.spel.standard.SpelExpressionParser;
+import org.springframework.expression.spel.support.StandardEvaluationContext;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
 @SpringBootTest
 class SimpleFunctionsApplicationTests {
 
+    ExpressionParser parser = new SpelExpressionParser();
+    TemplateParserContext parserContext = new TemplateParserContext();
+    String redisNameSpace = "";
+
     @Test
     void contextLoads() {
+
+        List<String> strings = new ArrayList<>();
+        strings.add("a");
+        strings.add("b");
+        Apple apple = new Apple();
+        apple.setArray(strings);
+
+        ExpressionParser parser = new SpelExpressionParser();
+        EvaluationContext context = new StandardEvaluationContext();
+        Expression expression = parser.parseExpression("redisson-#{#apple.getArray()}",parserContext);
+        context.setVariable("apple",apple);
+        Object value = expression.getValue(context);
+        if (value instanceof List<?>){
+            List<String> arr = (List<String>) value;
+            for (String s : arr) {
+                System.out.println(s);
+            }
+        }
+        System.out.println(value);
+
+
+    }
+
+    @Data
+    class Apple{
+        List<String> array;
     }
 
     @Test
