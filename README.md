@@ -23,11 +23,11 @@
 
 ```mermaid
 graph LR;
+B(Main)-->A11
 A(1.0.0:初始化hello接口)-->A1;
 A(1.0.0:初始化hello接口)-->A2;
 A(1.0.0:初始化hello接口)-->A3;
 A(1.0.0:初始化hello接口)-->A4;
 A1(1.1.0:整合Redis)-->A11(1.1.1:分布式锁);
-B(Main)-->A
 ```
 #### 1.1.0 整合Redis
